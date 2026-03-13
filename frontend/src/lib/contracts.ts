@@ -1,12 +1,37 @@
 // ── Deployed contract addresses ─────────────────────────────────────────────
-// Set these in .env.local after deployment
-export const PAYROLL_ADDRESS =
+export const DEFAULT_PAYROLL_ADDRESS =
   (process.env.NEXT_PUBLIC_PAYROLL_ADDRESS as `0x${string}`) ??
   "0x0000000000000000000000000000000000000000";
 
-export const TOKEN_ADDRESS =
+export const DEFAULT_TOKEN_ADDRESS =
   (process.env.NEXT_PUBLIC_TOKEN_ADDRESS as `0x${string}`) ??
   "0x0000000000000000000000000000000000000000";
+
+export const FACTORY_ADDRESS =
+  (process.env.NEXT_PUBLIC_FACTORY_ADDRESS as `0x${string}`) ??
+  "0x0000000000000000000000000000000000000000";
+
+// Legacy exports for backwards compat
+export const PAYROLL_ADDRESS = DEFAULT_PAYROLL_ADDRESS;
+export const TOKEN_ADDRESS = DEFAULT_TOKEN_ADDRESS;
+
+// Helper to get/set active payroll instance from localStorage
+export function getActivePayroll(): { payroll: `0x${string}`; token: `0x${string}` } | null {
+  if (typeof window === "undefined") return null;
+  const saved = localStorage.getItem("activePayroll");
+  if (saved) {
+    try { return JSON.parse(saved); } catch { /* ignore */ }
+  }
+  // Fall back to env defaults
+  if (DEFAULT_PAYROLL_ADDRESS !== "0x0000000000000000000000000000000000000000") {
+    return { payroll: DEFAULT_PAYROLL_ADDRESS, token: DEFAULT_TOKEN_ADDRESS };
+  }
+  return null;
+}
+
+export function setActivePayroll(payroll: `0x${string}`, token: `0x${string}`) {
+  localStorage.setItem("activePayroll", JSON.stringify({ payroll, token }));
+}
 
 // ── Shared FHEVM instance (singleton) ────────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -147,5 +172,33 @@ export const TOKEN_ABI = [
     name: "confidentialTransfer", type: "function", stateMutability: "nonpayable",
     inputs: [{ name: "to", type: "address" }, { name: "encryptedAmount", type: "bytes32" }, { name: "inputProof", type: "bytes" }],
     outputs: [{ type: "bytes32" }],
+  },
+] as const;
+
+// ── PayrollFactory ABI ──────────────────────────────────────────────────────
+export const FACTORY_ABI = [
+  {
+    name: "createPayroll", type: "function", stateMutability: "nonpayable",
+    inputs: [{ name: "initialMint", type: "uint64" }],
+    outputs: [{ name: "payroll", type: "address" }, { name: "token", type: "address" }],
+  },
+  {
+    name: "getEmployerPayrolls", type: "function", stateMutability: "view",
+    inputs: [{ name: "employer", type: "address" }],
+    outputs: [{ type: "tuple[]", components: [{ name: "payroll", type: "address" }, { name: "token", type: "address" }] }],
+  },
+  {
+    name: "totalInstances", type: "function", stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "uint256" }],
+  },
+  {
+    name: "PayrollCreated", type: "event",
+    inputs: [
+      { name: "employer", type: "address", indexed: true },
+      { name: "payroll", type: "address", indexed: false },
+      { name: "token", type: "address", indexed: false },
+      { name: "index", type: "uint256", indexed: false },
+    ],
   },
 ] as const;

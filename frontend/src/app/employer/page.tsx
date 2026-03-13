@@ -5,7 +5,7 @@ import { useAccount, useReadContract, useWriteContract } from "wagmi";
 import { isAddress, createPublicClient, http } from "viem";
 import { sepolia } from "viem/chains";
 import Link from "next/link";
-import { PAYROLL_ABI, PAYROLL_ADDRESS, TOKEN_ADDRESS, TOKEN_ABI, getFhevmInstance } from "@/lib/contracts";
+import { PAYROLL_ABI, TOKEN_ADDRESS, TOKEN_ABI, getFhevmInstance, getActivePayroll } from "@/lib/contracts";
 
 function toHex(bytes: Uint8Array): string {
   return "0x" + Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -45,6 +45,11 @@ function Toast({ message, type }: { message: string; type: "success" | "error" |
 export default function EmployerPage() {
   const { address, isConnected } = useAccount();
   const { writeContractAsync } = useWriteContract();
+
+  // Dynamic payroll address from localStorage
+  const active = getActivePayroll();
+  const PAYROLL_ADDRESS = (active?.payroll ?? "0x0000000000000000000000000000000000000000") as `0x${string}`;
+  const ACTIVE_TOKEN = (active?.token ?? "0x0000000000000000000000000000000000000000") as `0x${string}`;
 
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
   const showToast = (message: string, type: "success" | "error" | "info" = "info") => { setToast({ message, type }); setTimeout(() => setToast(null), 4000); };
@@ -371,8 +376,8 @@ export default function EmployerPage() {
 
         {/* Contract Info */}
         <div className="bg-[var(--base-300)] border border-[var(--border)] p-5 text-xs font-mono">
-          <div className="flex gap-2 mb-1"><span className="text-[var(--fg-muted)]">Payroll:</span><span className="text-[var(--fg)]">{PAYROLL_ADDRESS}</span></div>
-          <div className="flex gap-2 mb-1"><span className="text-[var(--fg-muted)]">Token:</span><span className="text-[var(--fg)]">{TOKEN_ADDRESS}</span></div>
+          <div className="flex gap-2 mb-1"><span className="text-[var(--fg-muted)]">Payroll:</span><span className="text-[var(--fg)]">{PAYROLL_ADDRESS ?? "—"}</span></div>
+          <div className="flex gap-2 mb-1"><span className="text-[var(--fg-muted)]">Token:</span><span className="text-[var(--fg)]">{ACTIVE_TOKEN ?? TOKEN_ADDRESS}</span></div>
           <div className="flex gap-2"><span className="text-[var(--fg-muted)]">Network:</span><span className="text-[var(--fg)]">Sepolia (Chain ID 11155111)</span></div>
         </div>
       </div>

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useAccount, useReadContract, useWriteContract, useSignTypedData } from "wagmi";
 import { isAddress } from "viem";
 import Link from "next/link";
-import { PAYROLL_ABI, PAYROLL_ADDRESS, TOKEN_ADDRESS, TOKEN_ABI, getFhevmInstance } from "@/lib/contracts";
+import { PAYROLL_ABI, TOKEN_ABI, getFhevmInstance, getActivePayroll } from "@/lib/contracts";
 
 function EncryptedCard({ label, handle, decryptedValue, onDecrypt, decrypting }: {
   label: string; handle?: unknown; decryptedValue?: bigint; onDecrypt: () => void; decrypting: boolean;
@@ -51,6 +51,11 @@ export default function EmployeePage() {
   const { address, isConnected } = useAccount();
   const { writeContractAsync } = useWriteContract();
   const { signTypedDataAsync } = useSignTypedData();
+
+  // Dynamic payroll address from localStorage
+  const active = getActivePayroll();
+  const PAYROLL_ADDRESS = (active?.payroll ?? "0x0000000000000000000000000000000000000000") as `0x${string}`;
+  const TOKEN_ADDRESS = (active?.token ?? "0x0000000000000000000000000000000000000000") as `0x${string}`;
 
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
   const showToast = (msg: string, type: "success" | "error" | "info" = "info") => { setToast({ message: msg, type }); setTimeout(() => setToast(null), 5000); };

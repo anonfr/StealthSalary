@@ -26,7 +26,7 @@ type Signers = {
 async function deployFixture(signers: Signers) {
   // 1. Deploy PayrollToken
   const tokenFactory = (await ethers.getContractFactory("PayrollToken")) as PayrollToken__factory;
-  const token = (await tokenFactory.connect(signers.deployer).deploy()) as PayrollToken;
+  const token = (await tokenFactory.connect(signers.deployer).deploy(signers.deployer.address)) as PayrollToken;
   await token.waitForDeployment();
   const tokenAddress = await token.getAddress();
 
@@ -34,7 +34,7 @@ async function deployFixture(signers: Signers) {
   const factory = (await ethers.getContractFactory("ConfidentialPayroll")) as ConfidentialPayroll__factory;
   const contract = (await factory
     .connect(signers.deployer)
-    .deploy(signers.gateway.address, tokenAddress)) as ConfidentialPayroll;
+    .deploy(signers.deployer.address, signers.gateway.address, tokenAddress)) as ConfidentialPayroll;
   await contract.waitForDeployment();
   const contractAddress = await contract.getAddress();
 

@@ -18,7 +18,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   const result = await deploy("ConfidentialPayroll", {
     from: deployer,
-    args: [gatewayAddress, tokenAddress],
+    args: [deployer, gatewayAddress, tokenAddress],
     log: true,
   });
 

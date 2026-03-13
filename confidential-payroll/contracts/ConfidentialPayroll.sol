@@ -97,10 +97,11 @@ contract ConfidentialPayroll is ZamaEthereumConfig {
     /// @param _payrollToken  Address of the ERC-7984 confidential token used for payroll
     /// @dev  Minimum wage is set post-deployment via `updateMinWage()` to avoid
     ///       the chicken-and-egg problem of encrypting inputs for an unknown address.
-    constructor(address _gateway, address _payrollToken) {
+    constructor(address _employer, address _gateway, address _payrollToken) {
+        if (_employer == address(0)) revert ZeroAddress();
         if (_gateway == address(0)) revert ZeroAddress();
         if (_payrollToken == address(0)) revert ZeroAddress();
-        employer = msg.sender;
+        employer = _employer;
         gateway = _gateway;
         payrollToken = IERC7984(_payrollToken);
     }

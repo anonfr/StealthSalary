@@ -20,10 +20,10 @@ contract PayrollToken is ZamaEthereumConfig, ERC7984 {
         _;
     }
 
-    constructor()
+    constructor(address _owner)
         ERC7984("Payroll Token", "PAY", "")
     {
-        owner = msg.sender;
+        owner = _owner;
     }
 
     /// @notice Mint `amount` tokens (plaintext) to `to`. Only owner can call.
