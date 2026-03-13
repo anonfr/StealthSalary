@@ -1,0 +1,137 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f4f4f4;
+  --foreground: #2d2d2d;
+  --accent: #ffd208;
+  --accent-hover: #e6be07;
+  --base-100: #fff7ec;
+  --base-200: #f4f4f4;
+  --base-300: #e8e8e8;
+  --border: #2d2d2d;
+  --bg-card: #ffffff;
+  --bg-input: #ffffff;
+  --fg: #2d2d2d;
+  --fg-muted: #6b6b6b;
+  --fg-on-accent: #2d2d2d;
+  --success: #3a6b35;
+  --error: #c0392b;
+  --danger: #c0392b;
+  --badge-bg: #e8e8e8;
+  --badge-fg: #2d2d2d;
+}
+
+.dark {
+  --background: #000000;
+  --foreground: #e0e0e0;
+  --accent: #ffd208;
+  --accent-hover: #e6be07;
+  --base-100: #0d0d0d;
+  --base-200: #000000;
+  --base-300: #151515;
+  --border: #262626;
+  --bg-card: #0a0a0a;
+  --bg-input: #0d0d0d;
+  --fg: #e0e0e0;
+  --fg-muted: #888888;
+  --fg-on-accent: #000000;
+  --success: #4caf50;
+  --error: #ef5350;
+  --danger: #ef5350;
+  --badge-bg: #1a1a1a;
+  --badge-fg: #e0e0e0;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "Telegraf", var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  transition: background 0.3s, color 0.3s;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+/* Brutalist: square corners everywhere */
+input, select, textarea, button {
+  border-radius: 0 !important;
+}
+
+/* Ensure inputs inherit proper text color in dark mode */
+input, select, textarea {
+  color: var(--fg);
+}
+input::placeholder, textarea::placeholder {
+  color: var(--fg-muted);
+  opacity: 0.7;
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--base-300); }
+::-webkit-scrollbar-thumb { background: var(--fg-muted); border-radius: 0; }
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-in { animation: fade-in 0.4s ease-out both; }
+
+/* Utility classes */
+.accent-btn {
+  background: var(--accent);
+  color: var(--fg-on-accent);
+  border: 1px solid var(--border);
+  font-weight: 600;
+  transition: background 0.15s;
+}
+.accent-btn:hover {
+  background: var(--accent-hover);
+}
+.accent-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.accent-badge {
+  background: var(--accent);
+  color: var(--fg-on-accent);
+  border: 1px solid var(--border);
+}
+
+.glass-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 0;
+}
+
+.glass-button {
+  background: var(--accent);
+  color: var(--fg-on-accent);
+  border: 1px solid var(--border);
+  border-radius: 0;
+  font-weight: 600;
+}
+.glass-button:hover {
+  background: var(--accent-hover);
+}
+
+.glass-input {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 0;
+  color: var(--fg);
+}
+.glass-input:focus {
+  border-color: var(--accent);
+  outline: none;
+}

@@ -1,0 +1,33 @@
+{
+  "name": "frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "postinstall": "cp node_modules/@zama-fhe/relayer-sdk/bundle/relayer-sdk-js.umd.cjs public/relayer-sdk.js && cp node_modules/@zama-fhe/relayer-sdk/bundle/workerHelpers.js public/workerHelpers.js && cp node_modules/@zama-fhe/relayer-sdk/bundle/tfhe_bg.wasm public/tfhe_bg.wasm && cp node_modules/@zama-fhe/relayer-sdk/bundle/kms_lib_bg.wasm public/kms_lib_bg.wasm"
+  },
+  "dependencies": {
+    "@reown/appkit": "^1.8.19",
+    "@reown/appkit-adapter-wagmi": "^1.8.19",
+    "@tanstack/react-query": "^5.90.21",
+    "@zama-fhe/relayer-sdk": "^0.4.2",
+    "next": "16.1.6",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "viem": "^2.47.0",
+    "wagmi": "^3.5.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.1.6",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
