@@ -17,6 +17,9 @@ export default function Home() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
+  const showToast = (msg: string, type: "success" | "error" | "info" = "info") => { setToast({ message: msg, type }); setTimeout(() => setToast(null), 5000); };
+
   // Active payroll instance
   const [activePayroll, setActive] = useState<{ payroll: `0x${string}`; token: `0x${string}` } | null>(null);
   useEffect(() => { if (mounted) setActive(getActivePayroll()); }, [mounted]);
@@ -52,11 +55,14 @@ export default function Home() {
     try {
       const hash = await writeContractAsync({
         address: FACTORY_ADDRESS, abi: FACTORY_ABI, functionName: "createPayroll", args: [BigInt(0)],
+        gas: BigInt(8_000_000),
       });
-      // Wait a bit then refetch
-      setTimeout(() => refetchPayrolls(), 3000);
-    } catch (e) {
+      showToast?.("Payroll created! Waiting for confirmation...", "success");
+      // Wait for tx confirmation then refetch
+      setTimeout(() => refetchPayrolls(), 5000);
+    } catch (e: unknown) {
       console.error(e);
+      showToast((e as Error).message?.slice(0, 80) ?? "Failed to create payroll", "error");
     } finally { setCreating(false); }
   };
 
@@ -205,6 +211,11 @@ export default function Home() {
           ))}
         </div>
       </div>
+      {toast && (
+        <div className={`fixed bottom-6 right-6 max-w-sm px-4 py-3 border text-sm fade-in border-l-4 border-[var(--border)] bg-[var(--bg-card)] text-[var(--fg)] ${toast.type === "success" ? "border-l-[var(--success)]" : toast.type === "error" ? "border-l-[var(--error)]" : "border-l-[var(--accent)]"}`}>
+          {toast.message}
+        </div>
+      )}
     </main>
   );
 }
