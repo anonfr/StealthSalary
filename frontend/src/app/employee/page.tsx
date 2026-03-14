@@ -5,6 +5,7 @@ import { useAccount, useReadContract, useWriteContract, useSignTypedData } from 
 import { isAddress } from "viem";
 import Link from "next/link";
 import { PAYROLL_ABI, TOKEN_ABI, getFhevmInstance, getActivePayroll } from "@/lib/contracts";
+import { TxOverlay, useTxOverlay } from "@/components/TxOverlay";
 
 function EncryptedCard({ label, handle, decryptedValue, onDecrypt, decrypting }: {
   label: string; handle?: unknown; decryptedValue?: bigint; onDecrypt: () => void; decrypting: boolean;
@@ -59,6 +60,7 @@ export default function EmployeePage() {
 
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
   const showToast = (msg: string, type: "success" | "error" | "info" = "info") => { setToast({ message: msg, type }); setTimeout(() => setToast(null), 5000); };
+  const tx = useTxOverlay();
 
   const { data: isEmployee, isLoading } = useReadContract({ address: PAYROLL_ADDRESS, abi: PAYROLL_ABI, functionName: "isEmployee", args: address ? [address] : undefined, query: { enabled: !!address } });
   const { data: hasPending } = useReadContract({ address: PAYROLL_ADDRESS, abi: PAYROLL_ABI, functionName: "hasPendingWithdrawal", args: address ? [address] : undefined, query: { enabled: !!address } });
@@ -83,20 +85,22 @@ export default function EmployeePage() {
     if (!address) return;
     const handle = toHandle(rawHandle);
     setLoading(true);
+    tx.start("Decrypting FHE Data", ["Generating keypair", "Sign EIP-712 permit in wallet", "Decrypting via Zama gateway", "Decrypted"]);
     try {
-      showToast("Sign the EIP-712 permit to decrypt...", "info");
       const instance = await getFhevmInstance();
       const { publicKey, privateKey } = instance.generateKeypair();
       const contractAddresses = [contractAddr];
       const startTimestamp = Math.floor(Date.now() / 1000);
       const durationDays = 1;
       const eip712 = instance.createEIP712(publicKey, contractAddresses, startTimestamp, durationDays);
+      tx.advance(1);
       const signature = await signTypedDataAsync({
         domain: eip712.domain as Record<string, unknown>,
         types: { UserDecryptRequestVerification: eip712.types.UserDecryptRequestVerification } as Record<string, { name: string; type: string }[]>,
         primaryType: "UserDecryptRequestVerification",
         message: eip712.message as Record<string, unknown>,
       });
+      tx.advance(2);
       const handleContractPairs = [{ handle, contractAddress: contractAddr }];
       const result = await instance.userDecrypt(
         handleContractPairs, privateKey, publicKey,
@@ -105,16 +109,21 @@ export default function EmployeePage() {
       );
       const val = result[handle];
       setter(val);
-      showToast("Decrypted successfully", "success");
-    } catch (e: unknown) { showToast((e as Error).message?.slice(0, 80) ?? "Failed", "error");
+      tx.complete();
+    } catch (e: unknown) { tx.fail((e as Error).message?.slice(0, 80) ?? "Failed");
     } finally { setLoading(false); }
   };
 
   const [initiating, setInitiating] = useState(false);
   const handleWithdraw = async () => {
     setInitiating(true);
-    try { await writeContractAsync({ address: PAYROLL_ADDRESS, abi: PAYROLL_ABI, functionName: "initiateWithdrawal" }); showToast("Withdrawal initiated!", "success");
-    } catch (e: unknown) { showToast((e as Error).message?.slice(0, 80) ?? "Failed", "error");
+    tx.start("Initiating Withdrawal", ["Waiting for wallet approval", "Submitting withdrawal request", "Withdrawal requested"]);
+    try {
+      const hash = await writeContractAsync({ address: PAYROLL_ADDRESS, abi: PAYROLL_ABI, functionName: "initiateWithdrawal" });
+      tx.advance(1); tx.setHash(hash);
+      await new Promise((r) => setTimeout(r, 3000));
+      tx.complete();
+    } catch (e: unknown) { tx.fail((e as Error).message?.slice(0, 80) ?? "Failed");
     } finally { setInitiating(false); }
   };
 
@@ -123,8 +132,14 @@ export default function EmployeePage() {
   const handleProof = async () => {
     if (!isAddress(verifierAddr)) return;
     setGrantingProof(true);
-    try { await writeContractAsync({ address: PAYROLL_ADDRESS, abi: PAYROLL_ABI, functionName: "generateIncomeProof", args: [verifierAddr as `0x${string}`] }); showToast("Income proof granted", "success"); setVerifierAddr("");
-    } catch (e: unknown) { showToast((e as Error).message?.slice(0, 80) ?? "Failed", "error");
+    tx.start("Granting Income Proof", ["Waiting for wallet approval", "Granting transient FHE access", "Proof granted"]);
+    try {
+      const hash = await writeContractAsync({ address: PAYROLL_ADDRESS, abi: PAYROLL_ABI, functionName: "generateIncomeProof", args: [verifierAddr as `0x${string}`] });
+      tx.advance(1); tx.setHash(hash);
+      await new Promise((r) => setTimeout(r, 3000));
+      tx.complete();
+      setVerifierAddr("");
+    } catch (e: unknown) { tx.fail((e as Error).message?.slice(0, 80) ?? "Failed");
     } finally { setGrantingProof(false); }
   };
 
@@ -223,6 +238,7 @@ export default function EmployeePage() {
         </>)}
       </div>
       {toast && <Toast {...toast} />}
+      <TxOverlay state={tx.state} onClose={tx.close} />
     </div>
   );
 }

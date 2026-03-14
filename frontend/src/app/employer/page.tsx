@@ -6,6 +6,7 @@ import { isAddress, createPublicClient, http } from "viem";
 import { sepolia } from "viem/chains";
 import Link from "next/link";
 import { PAYROLL_ABI, TOKEN_ADDRESS, TOKEN_ABI, getFhevmInstance, getActivePayroll } from "@/lib/contracts";
+import { TxOverlay, useTxOverlay } from "@/components/TxOverlay";
 
 function toHex(bytes: Uint8Array): string {
   return "0x" + Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -53,6 +54,7 @@ export default function EmployerPage() {
 
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
   const showToast = (message: string, type: "success" | "error" | "info" = "info") => { setToast({ message, type }); setTimeout(() => setToast(null), 4000); };
+  const tx = useTxOverlay();
 
   const { data: employer, isLoading: loadingEmployer } = useReadContract({ address: PAYROLL_ADDRESS, abi: PAYROLL_ABI, functionName: "employer" });
   const { data: empCount, refetch: refetchCount } = useReadContract({ address: PAYROLL_ADDRESS, abi: PAYROLL_ABI, functionName: "employeeCount" });
@@ -69,29 +71,33 @@ export default function EmployerPage() {
   const handleAddEmployee = async () => {
     if (!isAddress(empAddress) || !salary || !address) return;
     setAddingEmp(true);
+    tx.start("Adding Employee", ["Encrypting salary with FHE", "Waiting for wallet approval", "Confirming on chain", "Employee added"]);
     try {
-      showToast("Encrypting salary with FHE...", "info");
       const instance = await getFhevmInstance();
       const input = instance.createEncryptedInput(PAYROLL_ADDRESS, address);
       const result = await input.add64(BigInt(Math.round(parseFloat(salary) * 1e6))).encrypt();
       const handle = toHex(result.handles[0]) as `0x${string}`;
       const inputProof = toHex(result.inputProof) as `0x${string}`;
-      showToast("Submitting transaction...", "info");
-      await writeContractAsync({ address: PAYROLL_ADDRESS, abi: PAYROLL_ABI, functionName: "addEmployee", args: [empAddress as `0x${string}`, handle, inputProof] });
-      showToast(`Employee ${empAddress.slice(0, 8)}... added`, "success");
+      tx.advance(1);
+      const hash = await writeContractAsync({ address: PAYROLL_ADDRESS, abi: PAYROLL_ABI, functionName: "addEmployee", args: [empAddress as `0x${string}`, handle, inputProof] });
+      tx.advance(2); tx.setHash(hash);
+      await new Promise((r) => setTimeout(r, 3000));
+      tx.complete();
       setEmpAddress(""); setSalary(""); refetchCount(); refetchList();
-    } catch (e: unknown) { showToast((e as Error).message?.slice(0, 80) ?? "Failed", "error");
+    } catch (e: unknown) { tx.fail((e as Error).message?.slice(0, 80) ?? "Failed");
     } finally { setAddingEmp(false); }
   };
 
   const [runningPayroll, setRunningPayroll] = useState(false);
   const handleRunPayroll = async () => {
     setRunningPayroll(true);
+    tx.start("Running Payroll", ["Waiting for wallet approval", "Executing homomorphic payroll", "Balances updated"]);
     try {
-      showToast("Running payroll for all employees...", "info");
-      await writeContractAsync({ address: PAYROLL_ADDRESS, abi: PAYROLL_ABI, functionName: "runPayroll" });
-      showToast("Payroll run! All balances updated (encrypted)", "success");
-    } catch (e: unknown) { showToast((e as Error).message?.slice(0, 80) ?? "Failed", "error");
+      const hash = await writeContractAsync({ address: PAYROLL_ADDRESS, abi: PAYROLL_ABI, functionName: "runPayroll" });
+      tx.advance(1); tx.setHash(hash);
+      await new Promise((r) => setTimeout(r, 3000));
+      tx.complete();
+    } catch (e: unknown) { tx.fail((e as Error).message?.slice(0, 80) ?? "Failed");
     } finally { setRunningPayroll(false); }
   };
 
@@ -100,11 +106,13 @@ export default function EmployerPage() {
   const handleCheckCompliance = async () => {
     if (!isAddress(checkAddr)) return;
     setCheckingCompliance(true);
+    tx.start("Compliance Check", ["Waiting for wallet approval", "Generating FHE proof (salary >= min wage)", "Proof submitted"]);
     try {
-      showToast("Generating FHE compliance proof...", "info");
-      await writeContractAsync({ address: PAYROLL_ADDRESS, abi: PAYROLL_ABI, functionName: "checkCompliance", args: [checkAddr as `0x${string}`] });
-      showToast("Compliance proof submitted!", "success");
-    } catch (e: unknown) { showToast((e as Error).message?.slice(0, 80) ?? "Failed", "error");
+      const hash = await writeContractAsync({ address: PAYROLL_ADDRESS, abi: PAYROLL_ABI, functionName: "checkCompliance", args: [checkAddr as `0x${string}`] });
+      tx.advance(1); tx.setHash(hash);
+      await new Promise((r) => setTimeout(r, 3000));
+      tx.complete();
+    } catch (e: unknown) { tx.fail((e as Error).message?.slice(0, 80) ?? "Failed");
     } finally { setCheckingCompliance(false); }
   };
 
@@ -121,25 +129,28 @@ export default function EmployerPage() {
   const handleMint = async () => {
     if (!mintAmount || !address) return;
     setMinting(true);
+    tx.start("Minting PAY Tokens", ["Waiting for wallet approval", "Minting tokens via FHE", `${mintAmount} PAY minted`]);
     try {
       const amount = BigInt(Math.round(parseFloat(mintAmount) * 1e6));
-      showToast("Minting PAY tokens...", "info");
-      await writeContractAsync({ address: ACTIVE_TOKEN, abi: TOKEN_ABI, functionName: "mint", args: [address, amount], gas: BigInt(5_000_000) });
-      showToast(`Minted ${mintAmount} PAY to your wallet`, "success");
+      const hash = await writeContractAsync({ address: ACTIVE_TOKEN, abi: TOKEN_ABI, functionName: "mint", args: [address, amount], gas: BigInt(5_000_000) });
+      tx.advance(1); tx.setHash(hash);
+      await new Promise((r) => setTimeout(r, 3000));
+      tx.complete();
       setMintAmount("");
-    } catch (e: unknown) { showToast((e as Error).message?.slice(0, 80) ?? "Failed", "error");
+    } catch (e: unknown) { tx.fail((e as Error).message?.slice(0, 80) ?? "Failed");
     } finally { setMinting(false); }
   };
 
   const handleSetOperator = async () => {
     setSettingOperator(true);
+    tx.start("Approving Operator", ["Waiting for wallet approval", "Setting payroll as token operator", "Operator approved"]);
     try {
-      // Set operator until year 2099 (timestamp 4102444800)
-      showToast("Setting payroll contract as operator...", "info");
-      await writeContractAsync({ address: ACTIVE_TOKEN, abi: TOKEN_ABI, functionName: "setOperator", args: [PAYROLL_ADDRESS, 4102444800], gas: BigInt(500_000) });
-      showToast("Payroll contract approved as operator!", "success");
+      const hash = await writeContractAsync({ address: ACTIVE_TOKEN, abi: TOKEN_ABI, functionName: "setOperator", args: [PAYROLL_ADDRESS, 4102444800], gas: BigInt(500_000) });
+      tx.advance(1); tx.setHash(hash);
+      await new Promise((r) => setTimeout(r, 3000));
+      tx.complete();
       refetchOperator();
-    } catch (e: unknown) { showToast((e as Error).message?.slice(0, 80) ?? "Failed", "error");
+    } catch (e: unknown) { tx.fail((e as Error).message?.slice(0, 80) ?? "Failed");
     } finally { setSettingOperator(false); }
   };
 
@@ -148,13 +159,15 @@ export default function EmployerPage() {
   const handleFund = async () => {
     if (!fundAmount) return;
     setFunding(true);
+    tx.start("Depositing Tokens", ["Waiting for wallet approval", "Encrypting & transferring tokens", `${fundAmount} PAY deposited`]);
     try {
       const amount = BigInt(Math.round(parseFloat(fundAmount) * 1e6));
-      showToast("Depositing PAY tokens...", "info");
-      await writeContractAsync({ address: PAYROLL_ADDRESS, abi: PAYROLL_ABI, functionName: "depositTokensPlaintext", args: [amount], gas: BigInt(8_000_000) });
-      showToast(`Deposited ${fundAmount} PAY tokens`, "success");
+      const hash = await writeContractAsync({ address: PAYROLL_ADDRESS, abi: PAYROLL_ABI, functionName: "depositTokensPlaintext", args: [amount], gas: BigInt(8_000_000) });
+      tx.advance(1); tx.setHash(hash);
+      await new Promise((r) => setTimeout(r, 3000));
+      tx.complete();
       setFundAmount(""); refetchBalance();
-    } catch (e: unknown) { showToast((e as Error).message?.slice(0, 80) ?? "Failed", "error");
+    } catch (e: unknown) { tx.fail((e as Error).message?.slice(0, 80) ?? "Failed");
     } finally { setFunding(false); }
   };
 
@@ -163,12 +176,15 @@ export default function EmployerPage() {
   const handleWithdraw = async () => {
     if (!withdrawAmount) return;
     setWithdrawing(true);
+    tx.start("Withdrawing Tokens", ["Waiting for wallet approval", "Processing withdrawal", `${withdrawAmount} PAY withdrawn`]);
     try {
       const amount = BigInt(Math.round(parseFloat(withdrawAmount) * 1e6));
-      await writeContractAsync({ address: PAYROLL_ADDRESS, abi: PAYROLL_ABI, functionName: "withdrawFunds", args: [amount] });
-      showToast(`Withdrew ${withdrawAmount} PAY tokens`, "success");
+      const hash = await writeContractAsync({ address: PAYROLL_ADDRESS, abi: PAYROLL_ABI, functionName: "withdrawFunds", args: [amount] });
+      tx.advance(1); tx.setHash(hash);
+      await new Promise((r) => setTimeout(r, 3000));
+      tx.complete();
       setWithdrawAmount(""); refetchBalance();
-    } catch (e: unknown) { showToast((e as Error).message?.slice(0, 80) ?? "Failed", "error");
+    } catch (e: unknown) { tx.fail((e as Error).message?.slice(0, 80) ?? "Failed");
     } finally { setWithdrawing(false); }
   };
 
@@ -177,11 +193,14 @@ export default function EmployerPage() {
   const handleRemove = async () => {
     if (!isAddress(removeAddr)) return;
     setRemoving(true);
+    tx.start("Removing Employee", ["Waiting for wallet approval", "Removing from payroll", "Employee removed"]);
     try {
-      await writeContractAsync({ address: PAYROLL_ADDRESS, abi: PAYROLL_ABI, functionName: "removeEmployee", args: [removeAddr as `0x${string}`] });
-      showToast("Employee removed", "success");
+      const hash = await writeContractAsync({ address: PAYROLL_ADDRESS, abi: PAYROLL_ABI, functionName: "removeEmployee", args: [removeAddr as `0x${string}`] });
+      tx.advance(1); tx.setHash(hash);
+      await new Promise((r) => setTimeout(r, 3000));
+      tx.complete();
       setRemoveAddr(""); refetchCount(); refetchList();
-    } catch (e: unknown) { showToast((e as Error).message?.slice(0, 80) ?? "Failed", "error");
+    } catch (e: unknown) { tx.fail((e as Error).message?.slice(0, 80) ?? "Failed");
     } finally { setRemoving(false); }
   };
 
@@ -213,15 +232,17 @@ export default function EmployerPage() {
     const amountStr = withdrawAmounts[emp];
     if (!amountStr) { showToast("Enter the salary amount for this employee", "error"); return; }
     setProcessingAddr(emp);
+    tx.start("Processing Withdrawal", ["Waiting for wallet approval", `Sending ${amountStr} PAY to ${emp.slice(0, 8)}...`, "Withdrawal processed"]);
     try {
       const amount = BigInt(Math.round(parseFloat(amountStr) * 1e6));
-      showToast(`Processing withdrawal for ${emp.slice(0, 8)}...`, "info");
-      await writeContractAsync({ address: PAYROLL_ADDRESS, abi: PAYROLL_ABI, functionName: "processWithdrawal", args: [emp, amount] });
-      showToast(`Withdrawal processed! ${amountStr} PAY sent to ${emp.slice(0, 8)}...`, "success");
+      const hash = await writeContractAsync({ address: PAYROLL_ADDRESS, abi: PAYROLL_ABI, functionName: "processWithdrawal", args: [emp, amount] });
+      tx.advance(1); tx.setHash(hash);
+      await new Promise((r) => setTimeout(r, 3000));
+      tx.complete();
       setWithdrawAmounts((prev) => { const n = { ...prev }; delete n[emp]; return n; });
       fetchPendingWithdrawals();
       refetchBalance();
-    } catch (e: unknown) { showToast((e as Error).message?.slice(0, 80) ?? "Failed", "error");
+    } catch (e: unknown) { tx.fail((e as Error).message?.slice(0, 80) ?? "Failed");
     } finally { setProcessingAddr(null); }
   };
 
@@ -449,6 +470,7 @@ export default function EmployerPage() {
         </div>
       </div>
       {toast && <Toast {...toast} />}
+      <TxOverlay state={tx.state} onClose={tx.close} />
     </div>
   );
 }

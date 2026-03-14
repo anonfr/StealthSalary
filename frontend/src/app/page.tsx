@@ -6,6 +6,7 @@ import { useAppKit } from "@reown/appkit/react";
 import { useRouter } from "next/navigation";
 import { PAYROLL_ABI, FACTORY_ABI, FACTORY_ADDRESS, getActivePayroll, setActivePayroll } from "@/lib/contracts";
 import { isAddress } from "viem";
+import { TxOverlay, useTxOverlay } from "@/components/TxOverlay";
 
 export default function Home() {
   const router = useRouter();
@@ -19,6 +20,7 @@ export default function Home() {
 
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
   const showToast = (msg: string, type: "success" | "error" | "info" = "info") => { setToast({ message: msg, type }); setTimeout(() => setToast(null), 5000); };
+  const tx = useTxOverlay();
 
   // Active payroll instance
   const [activePayroll, setActive] = useState<{ payroll: `0x${string}`; token: `0x${string}` } | null>(null);
@@ -52,17 +54,19 @@ export default function Home() {
   const handleCreatePayroll = async () => {
     if (!address) return;
     setCreating(true);
+    tx.start("Creating Payroll", ["Waiting for wallet approval", "Deploying PayrollToken + ConfidentialPayroll", "Contracts deployed"]);
     try {
       const hash = await writeContractAsync({
         address: FACTORY_ADDRESS, abi: FACTORY_ABI, functionName: "createPayroll", args: [BigInt(0)],
         gas: BigInt(8_000_000),
       });
-      showToast?.("Payroll created! Waiting for confirmation...", "success");
-      // Wait for tx confirmation then refetch
-      setTimeout(() => refetchPayrolls(), 5000);
+      tx.advance(1); tx.setHash(hash);
+      await new Promise((r) => setTimeout(r, 5000));
+      tx.complete();
+      refetchPayrolls();
     } catch (e: unknown) {
       console.error(e);
-      showToast((e as Error).message?.slice(0, 80) ?? "Failed to create payroll", "error");
+      tx.fail((e as Error).message?.slice(0, 80) ?? "Failed to create payroll");
     } finally { setCreating(false); }
   };
 
@@ -216,6 +220,7 @@ export default function Home() {
           {toast.message}
         </div>
       )}
+      <TxOverlay state={tx.state} onClose={tx.close} />
     </main>
   );
 }
