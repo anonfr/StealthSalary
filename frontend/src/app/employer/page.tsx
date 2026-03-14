@@ -108,6 +108,41 @@ export default function EmployerPage() {
     } finally { setCheckingCompliance(false); }
   };
 
+  // ── Setup: Mint + Set Operator ──────────────────────────────────────────────
+  const [mintAmount, setMintAmount] = useState("");
+  const [minting, setMinting] = useState(false);
+  const [settingOperator, setSettingOperator] = useState(false);
+
+  const { data: isOperatorSet, refetch: refetchOperator } = useReadContract({
+    address: ACTIVE_TOKEN, abi: TOKEN_ABI, functionName: "isOperator",
+    args: [address ?? "0x0000000000000000000000000000000000000000", PAYROLL_ADDRESS],
+  });
+
+  const handleMint = async () => {
+    if (!mintAmount || !address) return;
+    setMinting(true);
+    try {
+      const amount = BigInt(Math.round(parseFloat(mintAmount) * 1e6));
+      showToast("Minting PAY tokens...", "info");
+      await writeContractAsync({ address: ACTIVE_TOKEN, abi: TOKEN_ABI, functionName: "mint", args: [address, amount], gas: BigInt(5_000_000) });
+      showToast(`Minted ${mintAmount} PAY to your wallet`, "success");
+      setMintAmount("");
+    } catch (e: unknown) { showToast((e as Error).message?.slice(0, 80) ?? "Failed", "error");
+    } finally { setMinting(false); }
+  };
+
+  const handleSetOperator = async () => {
+    setSettingOperator(true);
+    try {
+      // Set operator until year 2099 (timestamp 4102444800)
+      showToast("Setting payroll contract as operator...", "info");
+      await writeContractAsync({ address: ACTIVE_TOKEN, abi: TOKEN_ABI, functionName: "setOperator", args: [PAYROLL_ADDRESS, 4102444800], gas: BigInt(500_000) });
+      showToast("Payroll contract approved as operator!", "success");
+      refetchOperator();
+    } catch (e: unknown) { showToast((e as Error).message?.slice(0, 80) ?? "Failed", "error");
+    } finally { setSettingOperator(false); }
+  };
+
   const [fundAmount, setFundAmount] = useState("");
   const [funding, setFunding] = useState(false);
   const handleFund = async () => {
@@ -116,7 +151,7 @@ export default function EmployerPage() {
     try {
       const amount = BigInt(Math.round(parseFloat(fundAmount) * 1e6));
       showToast("Depositing PAY tokens...", "info");
-      await writeContractAsync({ address: PAYROLL_ADDRESS, abi: PAYROLL_ABI, functionName: "depositTokensPlaintext", args: [amount] });
+      await writeContractAsync({ address: PAYROLL_ADDRESS, abi: PAYROLL_ABI, functionName: "depositTokensPlaintext", args: [amount], gas: BigInt(8_000_000) });
       showToast(`Deposited ${fundAmount} PAY tokens`, "success");
       setFundAmount(""); refetchBalance();
     } catch (e: unknown) { showToast((e as Error).message?.slice(0, 80) ?? "Failed", "error");
@@ -274,6 +309,38 @@ export default function EmployerPage() {
             <TxButton onClick={handleCheckCompliance} loading={checkingCompliance} disabled={!isOwner || !isAddress(checkAddr)} variant="secondary">Generate Compliance Proof</TxButton>
           </div>
         </div>
+
+        {/* Setup: Mint + Operator */}
+        {isOwner && (
+          <div className="bg-[var(--bg-card)] border border-[var(--border)] p-5">
+            <h2 className="font-semibold mb-2 flex items-center gap-2">
+              <span className="accent-badge w-6 h-6 text-xs flex items-center justify-center font-bold">⚙</span>
+              Token Setup
+            </h2>
+            <p className="text-xs text-[var(--fg-muted)] mb-4">Mint PAY tokens and approve the payroll contract before depositing.</p>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs text-[var(--fg-muted)] mb-1 block uppercase tracking-wider">Mint Tokens</label>
+                <div className="flex gap-2 mb-2">
+                  <input className="flex-1 bg-[var(--bg-input)] border border-[var(--border)] px-3 py-2 text-sm text-[var(--fg)] focus:outline-none focus:border-[var(--accent)]" placeholder="10000" type="number" value={mintAmount} onChange={(e) => setMintAmount(e.target.value)} />
+                  <span className="flex items-center text-sm text-[var(--fg-muted)]">PAY</span>
+                </div>
+                <TxButton onClick={handleMint} loading={minting} disabled={!mintAmount}>Mint to Wallet</TxButton>
+              </div>
+              <div>
+                <label className="text-xs text-[var(--fg-muted)] mb-1 block uppercase tracking-wider">Operator Approval</label>
+                <p className="text-xs text-[var(--fg-muted)] mb-2">
+                  {isOperatorSet ? "Payroll contract is approved as operator." : "Payroll contract needs operator approval to transfer tokens."}
+                </p>
+                {isOperatorSet ? (
+                  <span className="accent-badge px-3 py-1 text-xs">Approved</span>
+                ) : (
+                  <TxButton onClick={handleSetOperator} loading={settingOperator}>Approve Payroll as Operator</TxButton>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Fund + Withdraw */}
         <div className="grid md:grid-cols-2 gap-4">
