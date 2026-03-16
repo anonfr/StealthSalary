@@ -1,32 +1,156 @@
 # StealthSalary
 
-### Fully Encrypted Onchain Payroll Powered by FHE
+**Fully encrypted onchain payroll powered by Fully Homomorphic Encryption (FHE)**
 
-> Privacy-preserving payroll where salaries are encrypted at every stage — storage, computation, and disclosure. No party, including the blockchain itself, ever sees plaintext compensation data.
+> Salaries are stored, computed, and transferred as FHE ciphertexts — no one on the blockchain, including validators, can ever see compensation data.
 
-[![Live Demo](https://img.shields.io/badge/Live-stealth--salary.vercel.app-ffd208?style=flat-square)](https://stealth-salary.vercel.app)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-stealth--salary.vercel.app-ffd208?style=flat-square&logo=vercel&logoColor=black)](https://stealth-salary.vercel.app)
 [![Solidity](https://img.shields.io/badge/Solidity-0.8.x-363636?style=flat-square&logo=solidity)](https://soliditylang.org/)
-[![fhEVM](https://img.shields.io/badge/fhEVM-Zama-ffd208?style=flat-square)](https://docs.zama.ai/fhevm)
+[![fhEVM](https://img.shields.io/badge/Zama-fhEVM-ffd208?style=flat-square)](https://docs.zama.ai/fhevm)
 [![ERC-7984](https://img.shields.io/badge/Token-ERC--7984-blue?style=flat-square)](https://eips.ethereum.org/EIPS/eip-7984)
-[![Next.js](https://img.shields.io/badge/Next.js-16-000?style=flat-square&logo=next.js)](https://nextjs.org/)
+[![Network](https://img.shields.io/badge/Network-Sepolia-purple?style=flat-square)](https://sepolia.etherscan.io)
 [![License](https://img.shields.io/badge/License-BSD--3--Clause--Clear-blue?style=flat-square)](LICENSE)
 
 ---
 
-## The Problem
+## Live Demo
 
-Payroll is one of the most sensitive categories of financial data. Current onchain payroll solutions expose salary amounts in plaintext on public ledgers:
+**[https://stealth-salary.vercel.app](https://stealth-salary.vercel.app)**
 
-- Employees can see each other's compensation
-- Organizations leak competitive salary intelligence
-- No way to prove compliance without revealing amounts
-- No selective disclosure for income verification (banks, landlords)
+- Network: **Ethereum Sepolia** (Chain ID 11155111)
+- Get Sepolia ETH: [sepoliafaucet.com](https://sepoliafaucet.com) or [faucet.quicknode.com/ethereum/sepolia](https://faucet.quicknode.com/ethereum/sepolia)
 
-Off-chain payroll systems solve privacy but sacrifice the transparency, auditability, and programmability that blockchains provide.
+---
 
-## The Solution
+## What Is StealthSalary?
 
-StealthSalary uses **Fully Homomorphic Encryption (FHE)** via [Zama's fhEVM](https://docs.zama.ai/fhevm) to keep salary data encrypted as `euint64` values throughout the entire lifecycle — from storage to computation to withdrawal.
+StealthSalary solves the biggest barrier to onchain payroll: **privacy**.
+
+On public blockchains, every salary, every payment, every balance is visible to anyone. StealthSalary uses **Fully Homomorphic Encryption** via [Zama's fhEVM](https://docs.zama.ai/fhevm) to keep all payroll data encrypted — even while performing arithmetic on it. The contract can add encrypted salaries to encrypted balances without ever decrypting them.
+
+### What Makes It Different
+
+| Traditional Onchain Payroll | StealthSalary |
+|---|---|
+| Salaries visible on-chain | Salaries stored as FHE ciphertexts (`euint64`) |
+| Anyone can see balances | Only the individual can decrypt their own balance |
+| Compliance requires revealing amounts | Compliance proven via FHE comparison — no amounts revealed |
+| Token transfers are public | ERC-7984 confidential token with encrypted transfers |
+
+---
+
+## How It Works
+
+### The FHE Stack
+
+```
+Browser (fhevmjs)                    Sepolia + Zama Coprocessor
+      │                                         │
+      │  encrypt(salary) ──────────────────────>│ store as euint64
+      │                                         │
+      │  FHE.add(balance, salary) ─ homomorphic computation (no decryption)
+      │                                         │
+      │  sign EIP-712 permit ──────────────────>│
+      │                   Zama KMS re-encrypts ─┘
+      │<─ decrypt locally ──────────────────────
+```
+
+1. **Client-side encryption** — fhevmjs encrypts salary in the browser before it ever touches the blockchain
+2. **Homomorphic payroll** — `FHE.add(balance, salary)` runs onchain without decrypting either value
+3. **Re-encryption for viewing** — employee signs an EIP-712 permit, Zama KMS re-encrypts the handle, decryption happens locally
+4. **Confidential token** — PAY token uses ERC-7984, all balances and transfers are encrypted
+
+---
+
+## Getting Started (Using the Live Site)
+
+### Prerequisites
+
+- MetaMask or any EIP-6963 wallet (Rabby, Frame, etc.)
+- Sepolia testnet ETH for gas
+
+---
+
+### As an Employer
+
+#### Step 1 — Create Your Payroll
+
+1. Go to [stealth-salary.vercel.app](https://stealth-salary.vercel.app)
+2. Connect your wallet (make sure you're on **Sepolia**)
+3. Click **"Create New Payroll"**
+4. Approve the transaction in MetaMask — this deploys your own `PayrollToken` + `ConfidentialPayroll` contracts
+5. Your new payroll appears under **"Your Payrolls"** — click **Select**
+
+#### Step 2 — Token Setup (do this before anything else)
+
+In the Employer Dashboard, find the **Token Setup** section:
+
+1. **Mint Tokens** — enter an amount (e.g. `10000`) and click **"Mint to Wallet"**. This mints PAY tokens to your wallet.
+2. **Approve Operator** — click **"Approve Payroll as Operator"**. This allows the payroll contract to transfer tokens from your wallet. Required before depositing.
+
+#### Step 3 — Fund the Payroll Pool
+
+1. Enter an amount in the **Fund Payroll Pool** section (e.g. `5000`)
+2. Click **"Deposit PAY Tokens"**
+3. Approve the transaction — tokens are transferred into the payroll contract
+
+#### Step 4 — Add Employees
+
+1. Enter the employee's **wallet address**
+2. Enter their **monthly salary** in token units (e.g. `3000` = 3000 PAY/month)
+3. Click **"Encrypt & Add Employee"**
+4. The salary is **encrypted in your browser** using fhevmjs before being sent to the contract — the plaintext never leaves your device
+
+#### Step 5 — Run Payroll
+
+Click **"Run Payroll for All Employees"** — the contract executes `FHE.add(balance, salary)` for each employee homomorphically. No salary is decrypted during this operation.
+
+#### Step 6 — Process Withdrawals
+
+When an employee requests a withdrawal, it appears in **Pending Withdrawals**:
+1. Enter the salary amount for that employee
+2. Click **"Approve"** — tokens are transferred to the employee's wallet
+
+#### Other Employer Actions
+
+- **Compliance Check** — enter an employee address and generate an FHE proof that their salary meets minimum wage. Anyone can verify the result without seeing the actual salary.
+- **Withdraw Funds** — pull PAY tokens back out of the contract (emergency/offboarding)
+- **Remove Employee** — deactivate an employee. Their accumulated balance is preserved.
+
+---
+
+### As an Employee
+
+#### Step 1 — Join a Payroll
+
+1. Go to [stealth-salary.vercel.app](https://stealth-salary.vercel.app)
+2. Connect your wallet
+3. Click **"Join Existing Payroll"** and enter the payroll contract address your employer gave you
+4. Click **"Employee"** to open your dashboard
+
+#### Step 2 — View Your Salary
+
+1. Click **"Decrypt"** next to **Monthly Salary**
+2. A MetaMask popup appears asking you to sign an **EIP-712 permit** (this is free — no gas)
+3. The Zama gateway re-encrypts your salary handle with your keypair
+4. Your salary is decrypted **locally in your browser** — the plaintext never goes onchain
+
+#### Step 3 — View Your Balance
+
+Same process as viewing salary — click **"Decrypt"** next to **Accumulated Balance**.
+
+#### Step 4 — Withdraw Salary
+
+1. Click **"Initiate Withdrawal"**
+2. Your employer sees the request in their **Pending Withdrawals** queue and approves it
+3. PAY tokens are transferred to your wallet
+
+#### Step 5 — Income Proof (optional)
+
+To prove your salary to a third party (bank, landlord, verifier contract):
+1. Enter the verifier's wallet address in **Income Proof**
+2. Click **"Grant Proof"**
+3. This calls `FHE.allowTransient(salary, verifier)` — the verifier gets one-transaction access to read your salary. It expires after that single transaction. No permanent exposure.
 
 ---
 
@@ -34,119 +158,71 @@ StealthSalary uses **Fully Homomorphic Encryption (FHE)** via [Zama's fhEVM](htt
 
 ```
                      ┌───────────────────────┐
-                     │    PayrollFactory.sol  │
-                     │  (Multi-tenant entry)  │
+                     │    PayrollFactory      │
+                     │  createPayroll()       │
+                     │  getEmployerPayrolls() │
                      └──────────┬────────────┘
-                                │ createPayroll()
-                     ┌──────────▼────────────┐
-                     │ Per-Employer Instance  │
-          ┌──────────┴──────────┬────────────┴──────────┐
-          │                     │                        │
- ┌────────▼────────┐  ┌────────▼─────────┐  ┌──────────▼──────────┐
- │ PayrollToken.sol │  │ ConfidentialPay  │  │ ConfidentialVesting  │
- │   (ERC-7984)    │  │   roll.sol       │  │       .sol           │
- │                 │  │                  │  │                      │
- │ Encrypted       │  │ euint64 salary   │  │ Encrypted grants     │
- │ balances &      │  │ euint64 balance  │  │ Cliff + linear       │
- │ transfers       │  │ FHE compliance   │  │ vesting              │
- └─────────────────┘  └────────┬─────────┘  └──────────────────────┘
-                               │
-                    ┌──────────▼──────────┐
-                    │    Zama Gateway     │
-                    │ Decrypts ebool/     │
-                    │ euint64 on-demand   │
-                    └─────────────────────┘
+                                │ deploys pair per employer
+              ┌─────────────────┼──────────────────┐
+              │                                    │
+   ┌──────────▼──────────┐            ┌────────────▼────────────┐
+   │  PayrollToken.sol   │            │  ConfidentialPayroll.sol │
+   │  (ERC-7984)         │            │                          │
+   │                     │◄───────────│  euint64 salary          │
+   │  Encrypted balances │ operator   │  euint64 balance         │
+   │  Encrypted transfers│            │  FHE.add (homomorphic)   │
+   │  setOperator()      │            │  FHE.ge  (compliance)    │
+   └─────────────────────┘            │  FHE.allowTransient      │
+                                      └────────────┬─────────────┘
+                                                   │
+                                      ┌────────────▼─────────────┐
+                                      │     Zama Gateway         │
+                                      │  makePubliclyDecryptable │
+                                      │  userDecrypt (KMS)       │
+                                      └──────────────────────────┘
 ```
 
----
+### Smart Contracts
 
-## Deployed Contracts (Sepolia)
+| Contract | Address (Sepolia) | Description |
+|---|---|---|
+| **PayrollFactory** | [`0x572555C8751d96Ee31dC0cbd89cb33097428072e`](https://sepolia.etherscan.io/address/0x572555C8751d96Ee31dC0cbd89cb33097428072e) | Factory for multi-tenant deployment |
+| **ConfidentialPayroll** *(default)* | [`0xcEA4beC8cA7B49D49f5722f20e570c7647Dd8E05`](https://sepolia.etherscan.io/address/0xcEA4beC8cA7B49D49f5722f20e570c7647Dd8E05) | Core payroll logic |
+| **PayrollToken (PAY)** *(default)* | [`0xc1Ab20Ae9c1387812132380A6E8EfDE7637Ab722`](https://sepolia.etherscan.io/address/0xc1Ab20Ae9c1387812132380A6E8EfDE7637Ab722) | ERC-7984 confidential token |
 
-| Contract | Address |
-|---|---|
-| **PayrollFactory** | [`0x572555C8751d96Ee31dC0cbd89cb33097428072e`](https://sepolia.etherscan.io/address/0x572555C8751d96Ee31dC0cbd89cb33097428072e) |
-| **ConfidentialPayroll** (default) | [`0xcEA4beC8cA7B49D49f5722f20e570c7647Dd8E05`](https://sepolia.etherscan.io/address/0xcEA4beC8cA7B49D49f5722f20e570c7647Dd8E05) |
-| **PayrollToken (PAY)** (default) | [`0xc1Ab20Ae9c1387812132380A6E8EfDE7637Ab722`](https://sepolia.etherscan.io/address/0xc1Ab20Ae9c1387812132380A6E8EfDE7637Ab722) |
-
----
-
-## Key Features
-
-### Encrypted Salaries (Privacy by Default)
+### Key Contract Functions
 
 ```solidity
-euint64 salary = FHE.fromExternal(encryptedSalary, proof);
-FHE.allow(salary, employer);
-FHE.allow(salary, employee); // Only these two can see it
+// Employer: add employee with FHE-encrypted salary
+addEmployee(address employee, externalEuint64 encSalary, bytes proof)
+
+// Employer: credit all employees' encrypted balances by their encrypted salary
+// No decryption happens — pure homomorphic addition
+runPayroll()
+
+// Employer: prove salary >= minimum wage without revealing amount
+checkCompliance(address employee) → ebool (publicly decryptable)
+
+// Employee: grant one-time salary access to a verifier
+generateIncomeProof(address verifier)  // uses FHE.allowTransient
+
+// Employee: request withdrawal
+initiateWithdrawal()
+
+// Employer: process employee withdrawal, transfer tokens
+processWithdrawal(address employee, uint64 amount)
 ```
 
-Salaries are stored as `euint64` ciphertexts. No onchain observer — not even validators — can read compensation data.
+### Encrypted Data Visibility
 
-### Homomorphic Payroll Execution
-
-```solidity
-_employees[emp].balance = FHE.add(_employees[emp].balance, _employees[emp].salary);
-// Arithmetic on encrypted values — no decryption during payroll
-```
-
-### Zero-Knowledge Compliance Proofs
-
-```solidity
-ebool isCompliant = FHE.ge(_employees[employee].salary, _minWage);
-FHE.makePubliclyDecryptable(isCompliant);
-// Anyone can verify "above minimum wage" — the salary is never revealed
-```
-
-### Selective Income Disclosure
-
-```solidity
-FHE.allowTransient(_employees[msg.sender].salary, verifier);
-// One-transaction access — perfect for bank or rental applications
-```
-
-### Multi-Tenant Factory
-
-Anyone can deploy their own PayrollToken + ConfidentialPayroll pair via the factory. Each employer gets an isolated payroll system.
-
-### ERC-7984 Confidential Token
-
-PAY token uses the ERC-7984 standard — encrypted balances, encrypted transfers, operator-based approvals.
-
----
-
-## How It Works
-
-### For Employers
-
-1. **Create Payroll** — Deploy your own payroll system via the factory (one click)
-2. **Setup** — Mint PAY tokens and approve the payroll contract as operator
-3. **Add Employees** — Enter wallet address + salary. Salary is encrypted client-side with fhevmjs before hitting the blockchain
-4. **Fund Pool** — Deposit PAY tokens into the payroll contract
-5. **Run Payroll** — Execute payroll for all employees. Each encrypted balance is homomorphically increased by their encrypted salary
-6. **Compliance** — Generate FHE proofs that any employee's salary meets minimum wage, without revealing the actual figure
-7. **Process Withdrawals** — Approve employee withdrawal requests. Gateway decrypts and transfers tokens atomically
-
-### For Employees
-
-1. **Connect Wallet** — Join an existing payroll by entering the contract address, or get added by your employer
-2. **View Salary** — Sign an EIP-712 message to decrypt your encrypted salary client-side. The plaintext never leaves your browser
-3. **View Balance** — Same flow to see your accumulated encrypted balance
-4. **Request Withdrawal** — Initiate a withdrawal request. Your employer approves it, and the gateway processes the encrypted transfer
-5. **Income Proof** — Grant a verifier (bank, landlord, government) one-time transient access to your encrypted salary for income verification. No permanent exposure, no full financial history leak
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| **FHE** | fhEVM, fhevmjs v0.6, @fhevm/solidity v0.11 |
-| **Token** | ERC-7984 (OpenZeppelin Confidential Contracts v0.3) |
-| **Contracts** | Solidity 0.8.x, Hardhat, hardhat-deploy |
-| **Frontend** | Next.js 16, React 19, wagmi v3, Reown AppKit |
-| **Styling** | Tailwind CSS 4 (Zama-inspired brutalist theme) |
-| **Network** | Ethereum Sepolia with Zama coprocessor |
-| **Hosting** | Vercel |
+| Data | Type | Who Can Read |
+|---|---|---|
+| Employee salary | `euint64` | Employer + that employee only |
+| Accumulated balance | `euint64` | Employer + that employee only |
+| Minimum wage threshold | `euint64` | Employer only |
+| Compliance result | `ebool` | Public (decrypted via Zama gateway) |
+| PAY token balances | `euint64` | Token holder only |
+| PAY token transfers | `euint64` | Sender + receiver only |
 
 ---
 
@@ -154,124 +230,107 @@ PAY token uses the ERC-7984 standard — encrypted balances, encrypted transfers
 
 ```
 StealthSalary/
-├── confidential-payroll/            # Smart contracts (Hardhat)
+├── confidential-payroll/              # Smart contracts (Hardhat)
 │   ├── contracts/
-│   │   ├── PayrollToken.sol         # ERC-7984 confidential token (PAY)
-│   │   ├── ConfidentialPayroll.sol   # Core payroll — salaries, payroll execution, compliance
-│   │   ├── ConfidentialVesting.sol   # Encrypted equity vesting with cliff periods
-│   │   └── PayrollFactory.sol       # Factory for multi-tenant deployment
-│   ├── deploy/                      # Hardhat deployment scripts
-│   ├── test/                        # Test suite (56 tests)
-│   └── hardhat.config.ts
+│   │   ├── PayrollToken.sol           # ERC-7984 PAY token (encrypted balances)
+│   │   ├── ConfidentialPayroll.sol    # Core payroll: salaries, compliance, withdrawal
+│   │   ├── ConfidentialVesting.sol    # Encrypted equity vesting with cliff periods
+│   │   └── PayrollFactory.sol        # Multi-tenant factory
+│   ├── deploy/                        # Hardhat deploy scripts
+│   ├── scripts/                       # Utility scripts (deployFactory.ts)
+│   └── test/                          # 56 tests (mock fhEVM)
 │
-├── frontend/                        # Web application (Next.js 16)
-│   └── src/
-│       ├── app/
-│       │   ├── page.tsx             # Home — create/join/select payroll
-│       │   ├── employer/page.tsx    # Employer dashboard
-│       │   └── employee/page.tsx    # Employee dashboard
-│       ├── components/
-│       │   ├── Providers.tsx        # wagmi + Reown AppKit setup
-│       │   └── ThemeToggle.tsx      # Dark/light mode toggle
-│       └── lib/
-│           └── contracts.ts         # ABIs, addresses, FHE instance
-│
-└── README.md
+└── frontend/                          # Next.js 16 app
+    └── src/
+        ├── app/
+        │   ├── page.tsx               # Home: create / join / select payroll
+        │   ├── employer/page.tsx      # Employer dashboard
+        │   └── employee/page.tsx      # Employee dashboard
+        ├── components/
+        │   ├── Providers.tsx          # wagmi + Reown AppKit
+        │   ├── ThemeToggle.tsx        # Dark / light mode
+        │   └── TxOverlay.tsx         # Transaction progress overlay
+        └── lib/
+            └── contracts.ts           # ABIs, addresses, fhevmjs instance
 ```
 
 ---
 
-## Quick Start
+## Running Locally
 
 ### Prerequisites
 
 - Node.js 20+
-- Browser wallet (MetaMask, Rabby, or any EIP-6963 compatible)
-- Sepolia testnet ETH for gas
-
-### Smart Contracts
-
-```bash
-cd confidential-payroll
-npm install
-
-# Run tests (local fhEVM mock)
-npm test
-
-# Deploy to Sepolia
-cp .env.example .env    # Add DEPLOYER_PRIVATE_KEY
-npm run deploy:sepolia
-```
+- MetaMask with Sepolia testnet ETH
 
 ### Frontend
 
 ```bash
-cd frontend
+git clone https://github.com/anonfr/StealthSalary.git
+cd StealthSalary/frontend
 npm install
 
-# Configure
+# Create environment file
 cp .env.local.example .env.local
-# Set: NEXT_PUBLIC_PAYROLL_ADDRESS, NEXT_PUBLIC_TOKEN_ADDRESS,
-#       NEXT_PUBLIC_FACTORY_ADDRESS, NEXT_PUBLIC_REOWN_PROJECT_ID
+```
 
+Edit `.env.local`:
+
+```env
+NEXT_PUBLIC_FACTORY_ADDRESS=0x572555C8751d96Ee31dC0cbd89cb33097428072e
+NEXT_PUBLIC_PAYROLL_ADDRESS=0xcEA4beC8cA7B49D49f5722f20e570c7647Dd8E05
+NEXT_PUBLIC_TOKEN_ADDRESS=0xc1Ab20Ae9c1387812132380A6E8EfDE7637Ab722
+NEXT_PUBLIC_REOWN_PROJECT_ID=<your_reown_project_id>
+```
+
+```bash
 npm run dev
 # Open http://localhost:3000
 ```
 
+### Smart Contracts
+
+```bash
+cd StealthSalary/confidential-payroll
+npm install
+
+# Run tests against fhEVM mock
+npm test
+
+# Deploy to Sepolia
+cp .env.example .env
+# Add DEPLOYER_PRIVATE_KEY to .env
+npx hardhat run scripts/deployFactory.ts --network sepolia
+```
+
 ---
 
-## Encrypted Data Visibility
+## Tech Stack
 
-| Data | Type | Who Can See |
-|---|---|---|
-| Employee salary | `euint64` | Employer + that employee only |
-| Employee balance | `euint64` | Employer + that employee only |
-| Minimum wage threshold | `euint64` | Employer only |
-| Compliance result | `ebool` | Public (via gateway decryption) |
-| Token balances | `euint64` | Token holder only |
-| Token transfers | `euint64` | Sender + receiver only |
-| Vesting grant amount | `euint64` | Employer + beneficiary only |
-
----
-
-## Withdrawal Flow
-
-```
-Employee                    Contract                     Zama Gateway
-   │                           │                              │
-   │── initiateWithdrawal() ──>│                              │
-   │                           │── makePubliclyDecryptable ──>│
-   │                           │      (balance handle)        │
-   │                           │                              │
-   │                           │<── employer approves ────────│
-   │                           │    processWithdrawal()       │
-   │                           │                              │
-   │<── PAY token transfer ────│                              │
-```
+| Layer | Technology |
+|---|---|
+| FHE Engine | Zama fhEVM + fhevmjs v0.6 |
+| FHE Solidity | @fhevm/solidity v0.11 |
+| Confidential Token | ERC-7984 via OpenZeppelin Confidential Contracts v0.3 |
+| Smart Contracts | Solidity 0.8.x, Hardhat, hardhat-deploy |
+| Frontend | Next.js 16, React 19, TypeScript |
+| Wallet | wagmi v3, Reown AppKit (EIP-6963 multi-wallet) |
+| Styling | Tailwind CSS 4 |
+| Network | Ethereum Sepolia + Zama coprocessor |
+| Hosting | Vercel |
 
 ---
 
 ## Tests
 
-56 tests passing across all contracts:
-
 ```
-PayrollToken (3 tests)
-  ✔ Deployment, minting, owner access control
+56 tests passing
 
-ConfidentialPayroll (26 tests)
-  ✔ Employee management — add, update salary, remove, access control
-  ✔ Payroll execution — runPayroll, runPayrollFor, balance accumulation
-  ✔ Compliance verification — FHE.ge against encrypted minWage
-  ✔ Income proof / selective disclosure
-  ✔ Withdrawal flow — initiate, gateway callback, balance reset
-  ✔ End-to-end payroll cycle
-
-ConfidentialVesting (16 tests)
-  ✔ Schedule creation with encrypted grant amounts
-  ✔ Cliff enforcement with time-based restrictions
-  ✔ Vesting claim flow — initiate, gateway callback, claimed tracking
-  ✔ Schedule revocation
+PayrollToken         (3)  — deployment, minting, access control
+ConfidentialPayroll (26)  — employee management, payroll execution,
+                            compliance proofs, income disclosure, withdrawals
+ConfidentialVesting (16)  — encrypted grants, cliff enforcement, vesting claims
+FHECounter           (3)  — template baseline
 ```
 
 ```bash
@@ -282,21 +341,15 @@ cd confidential-payroll && npm test
 
 ## Why This Matters
 
-Payroll is a **$1.4 trillion** industry. The only reason it hasn't moved onchain is privacy. StealthSalary proves:
+**Payroll is a $1.4 trillion industry.** The only reason it hasn't moved onchain is privacy.
 
-1. **Technically feasible** — FHE enables full salary confidentiality at smart contract level
-2. **Compliance without transparency** — regulators get cryptographic proofs, not raw data
-3. **Employee empowerment** — selective disclosure to banks/landlords without full exposure
-4. **Multi-tenant ready** — factory pattern lets anyone deploy their own private payroll
-5. **Production architecture** — built on the Zama Protocol with gateway decryption pattern
+StealthSalary proves it's technically feasible:
 
----
-
-## Built With
-
-- [Zama fhEVM](https://docs.zama.ai/fhevm) — Fully Homomorphic Encryption for Ethereum
-- [OpenZeppelin Confidential Contracts](https://github.com/OpenZeppelin/openzeppelin-confidential-contracts) — ERC-7984 implementation
-- [Reown AppKit](https://reown.com) — Multi-wallet connectivity
+- **No salary leaks** — FHE ciphertexts are opaque to every observer
+- **No compliance tradeoffs** — regulators get cryptographic proofs, not raw data
+- **Employee control** — selective disclosure with `FHE.allowTransient`, one-time access only
+- **Multi-tenant** — factory pattern lets any organization deploy their own private payroll
+- **Production-grade** — built on Zama Protocol with the full KMS/gateway decryption pattern
 
 ---
 
